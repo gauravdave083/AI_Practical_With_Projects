@@ -126,7 +126,4 @@ This repository follows a structured roadmap focusing on **real-world AI develop
 - How would you deploy a FastAPI app on Azure?
 - Explain how you’d use Blob Storage or S3 in an AI project.
 
----
-
-## 🧑‍💻 Project Structure
 
