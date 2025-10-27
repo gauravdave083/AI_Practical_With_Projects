@@ -1,0 +1,390 @@
+# Object-Oriented Programming (OOPs)
+
+## Goal
+Understand classes, objects, inheritance, encapsulation, polymorphism, and `@property`.
+
+### Concept Recap
+- **Class**: Blueprint for creating objects.
+- **Object (Instance)**: An actual item created from a class.
+- **Encapsulation**: Bundling data & methods; hide internals with `_`/`__`.
+- **Inheritance**: Create child classes reusing parent behavior.
+- **Polymorphism**: Same interface, different implementations.
+
+### Example: Simple Bank Account System
+
+#### `bank.py`
+```python
+class InsufficientFunds(Exception):
+    pass
+
+class Account:
+    """A simple bank account demonstrating OOP concepts."""
+    bank_name = "SimpleBank"  # class attribute shared by all instances
+
+    def __init__(self, owner: str, balance: float = 0.0):
+        self.owner = owner            # public attribute
+        self._balance = float(balance)  # protected attribute (convention)
+
+    def deposit(self, amount: float) -> float:
+        if amount <= 0:
+            raise ValueError("Deposit amount must be positive.")
+        self._balance += amount
+        return self._balance
+
+    def withdraw(self, amount: float) -> float:
+        if amount <= 0:
+            raise ValueError("Withdrawal amount must be positive.")
+        if amount > self._balance:
+            raise InsufficientFunds(f"Available: {self._balance}, Tried: {amount}")
+        self._balance -= amount
+        return self._balance
+
+    @property
+    def balance(self) -> float:
+        """Read-only property access to balance."""
+        return self._balance
+
+    def __repr__(self):
+        return f"Account(owner={self.owner!r}, balance={self._balance:.2f})"
+```
+
+#### Inheritance and Polymorphism
+
+##### `savings.py`
+```python
+from bank import Account
+
+class SavingsAccount(Account):
+    def __init__(self, owner: str, balance: float = 0.0, interest_rate: float = 0.02):
+        super().__init__(owner, balance)
+        self.interest_rate = interest_rate
+
+    def apply_interest(self):
+        self._balance *= (1 + self.interest_rate)
+
+    # override withdraw to prevent over-withdrawal once per month (example)
+    def withdraw(self, amount: float) -> float:
+        print("SavingsAccount: doing extra checks before withdraw")
+        return super().withdraw(amount)
+```
+
+#### Usage
+```python
+if __name__ == "__main__":
+    a = Account("Gaurav", 1000)
+    print(a)                 # Account(owner='Gaurav', balance=1000.00)
+    a.deposit(200)
+    try:
+        a.withdraw(1500)
+    except Exception as e:
+        print("Error:", e)
+
+    s = SavingsAccount("Maya", 500, interest_rate=0.05)
+    s.apply_interest()
+    print(s.balance)         # shows balance after interest
+```
+
+### Tips for a Fresher
+- Use `@property` instead of exposing internal attributes.
+- Use exceptions for invalid operations (see `InsufficientFunds` example).
+- Keep methods small & single-purpose.
+
+---
+
+# Async Programming (async/await)
+
+## Goal
+Learn how to write concurrent code (IO-bound) using `async/await` and `asyncio`.
+
+### When to Use
+Network calls, file I/O (with async libraries), waiting on remote services — where you can do useful work while waiting.
+
+### Simple Example: Fetching Multiple URLs (Simulated)
+We’ll simulate network calls using `asyncio.sleep`. In real code, you'd use `httpx.AsyncClient` or `aiohttp`.
+
+#### `async_demo.py`
+```python
+import asyncio
+import random
+
+async def fetch_data(name: str, delay: float):
+    print(f"{name}: start (delay={delay})")
+    await asyncio.sleep(delay)  # simulates network I/O
+    result = f"{name} result after {delay}s"
+    print(f"{name}: done")
+    return result
+
+async def main():
+    tasks = []
+    for i in range(5):
+        delay = random.uniform(0.5, 2.0)
+        tasks.append(asyncio.create_task(fetch_data(f"task-{i}", delay)))
+
+    # gather will run all tasks concurrently and wait for all to complete
+    results = await asyncio.gather(*tasks)
+    print("All results:", results)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Key Points
+- `async def` defines coroutine functions.
+- Use `await` to wait for coroutines.
+- `asyncio.create_task()` schedules background tasks.
+- Prefer `asyncio.gather` for multiple concurrent awaits.
+
+#### Example with Network Client (Conceptual)
+```python
+# pseudo-code (need httpx installed for real)
+# import httpx, asyncio
+# async with httpx.AsyncClient() as client:
+#     r = await client.get(url)
+#     return r.text
+```
+
+---
+
+# Decorators
+
+## Goal
+Understand function decorators, how they wrap behavior, and parameterized decorators.
+
+### Simple Decorator
+```python
+def timer(func):
+    import time
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        elapsed = time.time() - start
+        print(f"{func.__name__} took {elapsed:.4f}s")
+        return result
+    return wrapper
+
+@timer
+def compute(n):
+    total = 0
+    for i in range(n):
+        total += i
+    return total
+
+if __name__ == "__main__":
+    print(compute(1000000))
+```
+
+### Async-Aware Decorator (Works with Async Functions)
+```python
+import asyncio, time
+from functools import wraps
+
+def async_timer(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        start = time.time()
+        result = await func(*args, **kwargs)
+        elapsed = time.time() - start
+        print(f"{func.__name__} (async) took {elapsed:.4f}s")
+        return result
+    return wrapper
+
+@async_timer
+async def async_work(n):
+    await asyncio.sleep(0.1)
+    return n * 2
+
+# run with asyncio.run(async_work(2))
+```
+
+### Parameterized Decorator (Takes Args)
+```python
+from functools import wraps
+
+def repeat(n_times: int):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            result = None
+            for _ in range(n_times):
+                result = func(*args, **kwargs)
+            return result
+        return wrapper
+    return decorator
+
+@repeat(3)
+def say_hi():
+    print("hi")
+
+# say_hi() prints "hi" three times
+```
+
+### Tips
+- Use `functools.wraps` to preserve metadata (`__name__`, `__doc__`).
+- Decorators are used for logging, caching, authentication, retries, timing, etc.
+
+---
+
+# Typing (Type Hints)
+
+## Goal
+Use type hints to make code clearer, find bugs earlier, and integrate with tools (`mypy`, linters).
+
+### Basic Syntax
+```python
+from typing import List, Dict, Optional, Tuple
+
+def greet(name: str) -> str:
+    return f"Hello, {name}"
+
+def sum_list(nums: List[int]) -> int:
+    return sum(nums)
+
+def find_user(user_id: int) -> Optional[Dict[str, str]]:
+    # returns None if not found
+    return {"id": str(user_id), "name": "Gaurav"}  # example
+```
+
+### Advanced: Typed Data Classes
+```python
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class Product:
+    id: int
+    name: str
+    price: float
+    tags: List[str] = None
+
+p = Product(1, "Bottle", 49.99, tags=["summer", "drink"])
+```
+
+### Protocols & Generics (Brief Intro)
+- Use generics for functions that work with any type:
+```python
+from typing import TypeVar, Generic
+```
+- Protocols (PEP 544) let you type by behavior (duck typing).
+
+### Tools
+- `mypy` for static type checks.
+- Editors (VS Code, PyCharm) show type hints while coding.
+
+---
+
+# Exception Handling
+
+## Goal
+Graceful error handling, creating custom exceptions, using `try`/`except`/`finally`.
+
+### Basic Example
+```python
+def read_int() -> int:
+    try:
+        x = int(input("Enter a number: "))
+    except ValueError as e:
+        print("That's not a number!")
+        raise  # re-raise if you want caller to handle it further
+    else:
+        print("You entered:", x)
+        return x
+    finally:
+        print("This runs whether or not an exception occurred.")
+```
+
+### Custom Exceptions
+```python
+class ValidationError(Exception):
+    """Raised when validation fails."""
+    pass
+
+def validate_age(age: int):
+    if age < 0:
+        raise ValidationError("Age cannot be negative.")
+```
+
+### Best Practices
+- Catch specific exceptions — avoid bare `except:`.
+- Use `finally` for cleanup (files, resources).
+- Add context when re-raising (`raise NewError from e`) to preserve stack trace.
+- Don’t use exceptions for normal control flow.
+
+---
+
+# Best Practices: PEP8, Modular Coding, Logging
+
+### PEP8 (Short Checklist for a Fresher)
+- **Files & Names**: `snake_case` for functions & variables, `PascalCase` for classes.
+- **Indentation**: 4 spaces (no tabs).
+- **Max Line Length**: 79 (or 88) characters.
+- **Blank Lines**: Separate top-level functions/classes with 2 blank lines.
+- **Imports**: Standard library first, third-party next, local imports last. Use one import per line unless related.
+- **Constants**: `UPPER_CASE`.
+- Use linters/formatters: `flake8`, `pylint`, `black` (auto-formatting).
+
+### Modular Coding (Project Structure Example)
+```
+my_project/
+├── README.md
+├── pyproject.toml
+├── src/
+│   ├── __init__.py
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── bank.py
+│   │   └── services/
+│   │       ├── __init__.py
+│   │       └── account_service.py
+│   └── tests/
+│       └── test_account.py
+```
+
+#### Why This is Good
+- Splits functionality into clear modules (single responsibility).
+- Easier to test.
+- Avoids circular imports.
+
+#### Example: `account_service.py`
+```python
+from ..bank import Account, InsufficientFunds
+
+def transfer(src: Account, dest: Account, amount: float):
+    """Transfer amount from src to dest atomically (basic demo)."""
+    src.withdraw(amount)
+    dest.deposit(amount)
+```
+
+### Logging (Don’t Use `print` for Production)
+#### `logger_config.py`
+```python
+import logging
+from logging.handlers import RotatingFileHandler
+
+def setup_logging():
+    logger = logging.getLogger("myapp")
+    logger.setLevel(logging.INFO)
+    handler = RotatingFileHandler("myapp.log", maxBytes=1_000_000, backupCount=3)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    # also log to console
+    console = logging.StreamHandler()
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+    return logger
+
+# usage
+if __name__ == "__main__":
+    logger = setup_logging()
+    logger.info("Application started")
+    try:
+        1 / 0
+    except ZeroDivisionError as e:
+        logger.exception("Unexpected error:")  # logs stack trace
+```
+
+### Logging Tips
+- Use different levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
+- Use `logger.exception()` inside `except` blocks to include tracebacks.
+- Configure logging once (e.g., at application entrypoint).
